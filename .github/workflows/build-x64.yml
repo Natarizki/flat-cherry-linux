@@ -33,7 +33,12 @@ jobs:
             bash -euo pipefail -c '
               pacman -Syu --noconfirm
               pacman -S --needed --noconfirm archiso
-              mkarchiso -v -w /workspace/work -o /workspace/out /workspace/iso/x86_64
+              profile=/tmp/flat-cherry-profile
+              mkdir -p "$profile"
+              cp -a /usr/share/archiso/configs/baseline/. "$profile/"
+              cp /workspace/iso/x86_64/profiledef.sh "$profile/profiledef.sh"
+              cp /workspace/iso/x86_64/packages.x86_64 "$profile/packages.x86_64"
+              mkarchiso -v -w /workspace/work -o /workspace/out "$profile"
             '
 
       - name: Verify build output and create checksum
