@@ -36,7 +36,7 @@ jobs:
             /bin/bash -euo pipefail -c '
               xbps-install -Syu git
               git clone --depth 1 https://github.com/void-linux/void-mklive.git /tmp/void-mklive
-              /workspace/iso/x86_64/build.sh /tmp/void-mklive /workspace/out
+              /bin/bash /workspace/iso/x86_64/build.sh /tmp/void-mklive /workspace/out
             '
 
       - name: Verify ISO and create checksum
