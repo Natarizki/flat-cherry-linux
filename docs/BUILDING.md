@@ -4,30 +4,40 @@
 
 Target release: `v0.1.0-alpha.1`
 
-The first milestone focuses on an x86_64 live image based on Arch Linux, using LXQt, X11, and systemd.
+The initial target is an x86_64 Void Linux live image with LXDE, X11, runit, Flatpak, and AMD/NVIDIA firmware.
 
 ## Build environment
 
-ISO builds are intended to run on GitHub Actions rather than on the project maintainer's phone.
+ISO builds run on GitHub Actions. The workflow uses the official `ghcr.io/void-linux/void-mklive` build container and the upstream `void-mklive` scripts.
 
-The initial workflow should:
-1. Run on an Ubuntu GitHub-hosted runner.
-2. Use an Arch Linux container to install Archiso and build dependencies.
-3. Build the x86_64 profile with `mkarchiso`.
-4. Upload the resulting ISO and SHA-256 checksum as a workflow artifact.
+The project build script:
+1. Generates the LXDE live image for x86_64.
+2. Adds Flatpak and the AMD/NVIDIA firmware packages.
+3. Registers Flathub as a system-wide Flatpak remote.
+4. Removes the upstream isohybrid MBR/GPT/APM options while retaining BIOS and UEFI El Torito boot entries.
+5. Creates a SHA-256 checksum and boot reports.
 
-## Release validation gates
+## ISO mode and validation
 
-A successful `mkarchiso` run alone does not make an image release-ready.
+The intended USB-writing mode is **Rufus ISO Image mode**, not DD mode.
 
-Before calling the image non-hybrid and publishing it as a supported release, validate:
+The build workflow records:
+- El Torito boot entries for BIOS and UEFI.
+- The ISO system-area report.
+- SHA-256 checksum.
 
-- El Torito boot catalog and boot entries.
-- Absence of unintended isohybrid MBR/GPT structures.
-- UEFI boot in QEMU.
-- BIOS boot in QEMU, if BIOS support is included in the milestone.
-- SHA-256 checksum generation and verification.
+A generated image is still a build candidate until the reports and actual boot tests have been reviewed. Do not describe an image as fully validated merely because the build succeeded.
 
-## Important status
+## Release process
 
-The non-hybrid conversion and validation process is not implemented yet. Until those checks pass, generated images must be treated as build candidates, not confirmed non-hybrid releases.
+- Pushes to `main` create a downloadable Actions build artifact.
+- Pushing a version tag matching `v*` builds the image and publishes the ISO, checksum, and reports to GitHub Releases.
+
+## Build locally
+
+The supported project workflow is GitHub Actions. The build script expects:
+- a working Void Linux `void-mklive` environment,
+- root privileges for filesystem mounts and image creation,
+- the upstream `void-mklive` checkout.
+
+The project build script is `iso/x86_64/build.sh`.
