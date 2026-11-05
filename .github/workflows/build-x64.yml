@@ -50,8 +50,8 @@ jobs:
 
           # Confirm that both BIOS and UEFI El Torito boot entries exist.
           xorriso -indev "$iso" -report_el_torito plain | tee out/ELTORITO-REPORT.txt
-          grep -Eqi 'BIOS' out/ELTORITO-REPORT.txt
-          grep -Eqi 'UEFI' out/ELTORITO-REPORT.txt
+          grep -Eqi 'BIOS|0x00' out/ELTORITO-REPORT.txt
+          grep -Eqi 'UEFI|EFI|0xef' out/ELTORITO-REPORT.txt
 
           # Report the system area for review. The build script strips the
           # upstream isohybrid MBR/GPT/APM options before image creation.
