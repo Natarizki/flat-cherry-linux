@@ -36,8 +36,8 @@ jobs:
             /bin/bash -euo pipefail -c '
               # Refresh repository metadata, update XBPS itself, then update/install build tools.
               xbps-install -S
-              xbps-install -u xbps
-              xbps-install -Syu git
+              xbps-install -y -u xbps
+              xbps-install -y -Syu git
               git clone --depth 1 https://github.com/void-linux/void-mklive.git /tmp/void-mklive
               /bin/bash /workspace/iso/x86_64/build.sh /tmp/void-mklive /workspace/out
             '
