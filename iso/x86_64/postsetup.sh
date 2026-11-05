@@ -24,7 +24,7 @@ for path in \
 done
 
 echo "--- Largest root filesystem directories (top 60) ---"
-du -x -B1 -d2 "$ROOTFS" 2>/dev/null | sort -nr | head -n 60 | tee "$AUDIT_DIR/largest-directories.txt"
+du -x -B1 -d2 "$ROOTFS" 2>/dev/null | sort -nr | sed -n '1,60p' | tee "$AUDIT_DIR/largest-directories.txt"
 
 echo "--- Installed package sizes (largest first) ---"
 if command -v xbps-query >/dev/null 2>&1; then
@@ -45,7 +45,7 @@ for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
   if [ -d "$firmware_dir" ]; then
     find "$firmware_dir" -type f -printf '%s %p\n'
   fi
-done | sort -nr | head -n 50 | tee "$AUDIT_DIR/largest-firmware-files.txt"
+done | sort -nr | sed -n '1,50p' | tee "$AUDIT_DIR/largest-firmware-files.txt"
 
 echo "--- Firmware directory breakdown ---"
 for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
