@@ -2,6 +2,11 @@
 set -euo pipefail
 
 ROOTFS="${1:?postsetup.sh requires the target root filesystem}"
+AUDIT_DIR="${FLAT_CHERRY_AUDIT_DIR:-/tmp/flat-cherry-audit}"
+mkdir -p "$AUDIT_DIR"
+AUDIT_LOG="$AUDIT_DIR/rootfs-audit.txt"
+: > "$AUDIT_LOG"
+exec > >(tee -a "$AUDIT_LOG") 2>&1
 
 echo "=== Flat Cherry pre-prune size audit ==="
 for path in \
@@ -18,17 +23,36 @@ for path in \
   fi
 done
 
-echo "--- Installed LXDE / desktop-related packages ---"
+echo "--- Largest root filesystem directories (top 60) ---"
+du -x -B1 -d2 "$ROOTFS" 2>/dev/null | sort -nr | head -n 60 | tee "$AUDIT_DIR/largest-directories.txt"
+
+echo "--- Installed package sizes (largest first) ---"
 if command -v xbps-query >/dev/null 2>&1; then
-  xbps-query -r "$ROOTFS" -l | grep -Ei 'lxde|lxappearance|lxpanel|lxsession|pcmanfm|lxterminal|openbox|lightdm|gvfs|udisks|firefox|xorg|font-' || true
+  while read -r state pkgver; do
+    [ "$state" = "ii" ] || continue
+    size="$(xbps-query -r "$ROOTFS" -p installed_size "$pkgver" 2>/dev/null | tr -d '[:space:]' || true)"
+    printf '%s\t%s\n' "${size:-0}" "$pkgver"
+  done < <(xbps-query -r "$ROOTFS" -l) | sort -nr -k1,1 | tee "$AUDIT_DIR/package-sizes.tsv"
+
+  echo "--- Installed LXDE / desktop-related packages ---"
+  xbps-query -r "$ROOTFS" -l | grep -Ei 'lxde|lxappearance|lxpanel|lxsession|pcmanfm|lxterminal|openbox|lightdm|gvfs|udisks|firefox|xorg|font-|gtk' | tee "$AUDIT_DIR/desktop-packages.txt" || true
+else
+  echo "WARNING: xbps-query unavailable; package-level audit skipped"
 fi
 
-echo "--- Largest firmware files (top 30) ---"
+echo "--- Largest firmware files (top 50) ---"
 for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
   if [ -d "$firmware_dir" ]; then
     find "$firmware_dir" -type f -printf '%s %p\n'
   fi
-done | sort -nr | head -n 30 || true
+done | sort -nr | head -n 50 | tee "$AUDIT_DIR/largest-firmware-files.txt"
+
+echo "--- Firmware directory breakdown ---"
+for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
+  if [ -d "$firmware_dir" ]; then
+    du -x -B1 -d2 "$firmware_dir" 2>/dev/null
+  fi
+done | sort -nr | tee "$AUDIT_DIR/firmware-directory-sizes.txt"
 
 # The image chroot does not automatically inherit the build container's DNS
 # resolver. Temporarily provide it so Flatpak can download Flathub's signed
@@ -82,3 +106,5 @@ cat > "$ROOTFS/etc/motd" <<'EOF'
 Welcome to Flat Cherry Linux
 Void Linux • runit • LXDE • Flatpak
 EOF
+
+echo "Audit reports saved in: $AUDIT_DIR"
