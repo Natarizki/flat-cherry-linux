@@ -13,4 +13,5 @@ bootmodes=('bios.syslinux'
 arch="x86_64"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
+airootfs_image_tool_options=(-comp xz -Xbcj x86 -b 1M)
 file_permissions=()
