@@ -50,10 +50,10 @@ jobs:
           file "${images[0]}"
           iso_bytes=$(stat -c%s "${images[0]}")
           echo "ISO size: ${iso_bytes} bytes"
-          if (( iso_bytes >= 1000000000 )); then
-            echo "::warning::ISO is still at or above the 1 GB target"
+          if (( iso_bytes >= 700000000 )); then
+            echo "::warning::ISO is still at or above the 700 MB target"
           else
-            echo "::notice::ISO is below the 1 GB target"
+            echo "::notice::ISO is below the 700 MB target"
           fi
 
       - name: Upload ISO build candidate
