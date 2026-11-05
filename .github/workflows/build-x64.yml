@@ -48,6 +48,13 @@ jobs:
           test "${#images[@]}" -eq 1
           sha256sum "${images[0]}" > out/SHA256SUMS
           file "${images[0]}"
+          iso_bytes=$(stat -c%s "${images[0]}")
+          echo "ISO size: ${iso_bytes} bytes"
+          if (( iso_bytes >= 1000000000 )); then
+            echo "::warning::ISO is still at or above the 1 GB target"
+          else
+            echo "::notice::ISO is below the 1 GB target"
+          fi
 
       - name: Upload ISO build candidate
         uses: actions/upload-artifact@v4
