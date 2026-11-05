@@ -9,6 +9,7 @@ on:
     paths:
       - "iso/x86_64/**"
       - ".github/workflows/build-x64.yml"
+      - "docs/BUILDING.md"
 
 permissions:
   contents: write
@@ -20,37 +21,45 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Build with Archiso in an Arch Linux container
+      - name: Build Void-based live ISO
         run: |
-          mkdir -p "${GITHUB_WORKSPACE}/out" "${GITHUB_WORKSPACE}/work"
+          mkdir -p "${GITHUB_WORKSPACE}/out"
           docker run --rm --privileged \
             -v "${GITHUB_WORKSPACE}:/workspace" \
             -w /workspace \
-            archlinux:latest \
-            bash -euo pipefail -c '
-              pacman -Syu --noconfirm
-              pacman -S --needed --noconfirm archiso grub
-              profile=/tmp/flat-cherry-profile
-              mkdir -p "$profile"
-              cp -a /usr/share/archiso/configs/baseline/. "$profile/"
-              cp /workspace/iso/x86_64/profiledef.sh "$profile/profiledef.sh"
-              cp /workspace/iso/x86_64/packages.x86_64 "$profile/packages.x86_64"
-              mkarchiso -v -w /workspace/work -o /workspace/out "$profile"
+            ghcr.io/void-linux/void-mklive:latest \
+            /bin/bash -euo pipefail -c '
+              xbps-install -Syu git
+              git clone --depth 1 https://github.com/void-linux/void-mklive.git /tmp/void-mklive
+              /workspace/iso/x86_64/build.sh /tmp/void-mklive /workspace/out
             '
 
-      - name: Verify build output and create checksum
+      - name: Verify ISO and create checksum
         run: |
           shopt -s nullglob
           images=(out/*.iso)
           test "${#images[@]}" -eq 1
-          sha256sum "${images[0]}" > out/SHA256SUMS
-          file "${images[0]}"
-          iso_bytes=$(stat -c%s "${images[0]}")
+          sudo apt-get update
+          sudo apt-get install -y xorriso
+          iso="${images[0]}"
+
+          # Confirm that both BIOS and UEFI El Torito boot entries exist.
+          xorriso -indev "$iso" -report_el_torito plain | tee out/ELTORITO-REPORT.txt
+          grep -Eqi 'BIOS' out/ELTORITO-REPORT.txt
+          grep -Eqi 'UEFI' out/ELTORITO-REPORT.txt
+
+          # Report the system area for review. The build script strips the
+          # upstream isohybrid MBR/GPT/APM options before image creation.
+          xorriso -indev "$iso" -report_system_area plain | tee out/SYSTEM-AREA-REPORT.txt
+
+          sha256sum "$iso" > out/SHA256SUMS
+          file "$iso"
+          iso_bytes=$(stat -c%s "$iso")
           echo "ISO size: ${iso_bytes} bytes"
           if (( iso_bytes >= 800000000 )); then
             echo "::warning::ISO is still at or above the 800 MB target"
@@ -65,6 +74,8 @@ jobs:
           files: |
             out/*.iso
             out/SHA256SUMS
+            out/ELTORITO-REPORT.txt
+            out/SYSTEM-AREA-REPORT.txt
           generate_release_notes: true
           fail_on_unmatched_files: true
 
