@@ -17,10 +17,12 @@ cd "$VOID_MKLIVE_DIR"
 sed -i -e 's/-isohybrid-mbr "\$SYSLINUX_DATADIR"\/isohdpfx.bin//' -e 's/-isohybrid-gpt-basdat -isohybrid-apm-hfsplus//' -e 's/VOID_LIVE/FLATCHERRY/g' mklive.sh
 
 # Drop optional upstream extras that inflate the live image unnecessarily.
+# Keep one sans-serif font family; documentation is pruned in postsetup.sh.
 # chrony is omitted, so also remove its chronyd runit service from mkiso.sh.
 sed -i \
   -e 's/ udisks2 firefox/ udisks2/' \
   -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' \
+  -e 's/FONTS="font-misc-misc terminus-font dejavu-fonts-ttf"/FONTS="font-inter"/' \
   -e 's/SERVICES="sshd chronyd"/SERVICES="sshd"/' \
   mkiso.sh
 
@@ -31,6 +33,11 @@ fi
 
 if grep -Eq 'SERVICES="sshd chronyd"' mkiso.sh; then
   echo "ERROR: chronyd service is still enabled although chrony is excluded" >&2
+  exit 1
+fi
+
+if ! grep -Fq 'FONTS="font-inter"' mkiso.sh; then
+  echo "ERROR: expected the minimal sans-serif font selection was not applied" >&2
   exit 1
 fi
 
