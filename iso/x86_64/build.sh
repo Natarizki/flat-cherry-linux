@@ -21,6 +21,12 @@ sed -i \
   -e 's/VOID_LIVE/FLATCHERRY/g' \
   mklive.sh
 
+# Trim optional upstream desktop extras to keep the live image compact.
+sed -i \\
+  -e 's/ udisks2 firefox/ udisks2/' \\
+  -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' \\
+  mkiso.sh
+
 if grep -Eq -- '-isohybrid-(mbr|gpt|apm)' mklive.sh; then
   echo "ERROR: isohybrid flags remain in the patched mklive script" >&2
   exit 1
