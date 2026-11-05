@@ -8,7 +8,8 @@ POSTSETUP="${SCRIPT_DIR}/postsetup.sh"
 ISO_VERSION="${FLAT_CHERRY_VERSION:-0.1.0-alpha.1}"
 ISO_PATH="${OUTPUT_DIR}/flat-cherry-${ISO_VERSION}-x86_64.iso"
 
-mkdir -p "$OUTPUT_DIR"
+mkdir -p "$OUTPUT_DIR" "$OUTPUT_DIR/audit"
+export FLAT_CHERRY_AUDIT_DIR="$OUTPUT_DIR/audit"
 chmod +x "$POSTSETUP"
 cd "$VOID_MKLIVE_DIR"
 
