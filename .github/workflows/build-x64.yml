@@ -32,7 +32,7 @@ jobs:
             archlinux:latest \
             bash -euo pipefail -c '
               pacman -Syu --noconfirm
-              pacman -S --needed --noconfirm archiso
+              pacman -S --needed --noconfirm archiso grub
               profile=/tmp/flat-cherry-profile
               mkdir -p "$profile"
               cp -a /usr/share/archiso/configs/baseline/. "$profile/"
