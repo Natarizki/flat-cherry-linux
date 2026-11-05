@@ -4,11 +4,7 @@ linux-firmware-intel
 linux-firmware-realtek
 linux-firmware-atheros
 linux-firmware-broadcom
-linux-firmware-mediatek
-linux-firmware-amd
-linux-firmware-amdgpu
-linux-firmware-radeon
-linux-firmware-nvidia
+linux-firmware-other
 mkinitcpio
 mkinitcpio-archiso
 grub
@@ -17,7 +13,6 @@ networkmanager
 sudo
 sddm
 xorg-server
-xorg-xinit
 mesa
 openbox
 lxqt-session
@@ -29,14 +24,12 @@ lxqt-menu-data
 lxqt-notificationd
 lxqt-policykit
 lxqt-powermanagement
-lxqt-qtplugin
 lxqt-themes
 pcmanfm-qt
 qterminal
 flatpak
 polkit
 udisks2
-gvfs
 ttf-dejavu
 pipewire
 pipewire-alsa
