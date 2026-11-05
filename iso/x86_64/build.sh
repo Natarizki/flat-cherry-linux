@@ -12,34 +12,19 @@ mkdir -p "$OUTPUT_DIR"
 chmod +x "$POSTSETUP"
 cd "$VOID_MKLIVE_DIR"
 
-# Keep the upstream BIOS and UEFI El Torito boot entries, but remove the
-# isohybrid MBR/GPT/APM extensions. This produces an optical-style ISO that
-# can be written by tools such as Rufus in ISO Image mode.
-sed -i \
-  -e 's/-isohybrid-mbr "\$SYSLINUX_DATADIR"\/isohdpfx.bin//' \
-  -e 's/-isohybrid-gpt-basdat -isohybrid-apm-hfsplus//' \
-  -e 's/VOID_LIVE/FLATCHERRY/g' \
-  mklive.sh
+# Keep BIOS and UEFI El Torito boot entries, but remove isohybrid MBR/GPT/APM
+# extensions so the result is an optical-style ISO for Rufus ISO Image mode.
+sed -i -e 's/-isohybrid-mbr "\$SYSLINUX_DATADIR"\/isohdpfx.bin//' -e 's/-isohybrid-gpt-basdat -isohybrid-apm-hfsplus//' -e 's/VOID_LIVE/FLATCHERRY/g' mklive.sh
 
-# Trim optional upstream desktop extras to keep the live image compact.
-sed -i \\
-  -e 's/ udisks2 firefox/ udisks2/' \\
-  -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' \\
-  mkiso.sh
+# Drop optional upstream extras that inflate the live image unnecessarily.
+sed -i -e 's/ udisks2 firefox/ udisks2/' -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' mkiso.sh
 
 if grep -Eq -- '-isohybrid-(mbr|gpt|apm)' mklive.sh; then
   echo "ERROR: isohybrid flags remain in the patched mklive script" >&2
   exit 1
 fi
 
-./mkiso.sh \
-  -a x86_64 \
-  -b lxde \
-  -- \
-  -p "flatpak linux-firmware-amd linux-firmware-nvidia" \
-  -x "$POSTSETUP" \
-  -T "Flat Cherry Linux" \
-  -o "$ISO_PATH"
+./mkiso.sh -a x86_64 -b lxde -- -p "flatpak linux-firmware-amd linux-firmware-nvidia" -x "$POSTSETUP" -T "Flat Cherry Linux" -o "$ISO_PATH"
 
 test -s "$ISO_PATH"
 echo "Built ISO: $ISO_PATH"
