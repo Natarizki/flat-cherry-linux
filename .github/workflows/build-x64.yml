@@ -34,6 +34,8 @@ jobs:
             -w /workspace \
             ghcr.io/void-linux/void-mklive:latest \
             /bin/bash -euo pipefail -c '
+              # Void requires the XBPS package manager itself to be updated first.
+              xbps-install -u xbps
               xbps-install -Syu git
               git clone --depth 1 https://github.com/void-linux/void-mklive.git /tmp/void-mklive
               /bin/bash /workspace/iso/x86_64/build.sh /tmp/void-mklive /workspace/out
