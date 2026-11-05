@@ -17,10 +17,20 @@ cd "$VOID_MKLIVE_DIR"
 sed -i -e 's/-isohybrid-mbr "\$SYSLINUX_DATADIR"\/isohdpfx.bin//' -e 's/-isohybrid-gpt-basdat -isohybrid-apm-hfsplus//' -e 's/VOID_LIVE/FLATCHERRY/g' mklive.sh
 
 # Drop optional upstream extras that inflate the live image unnecessarily.
-sed -i -e 's/ udisks2 firefox/ udisks2/' -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' mkiso.sh
+# chrony is omitted, so also remove its chronyd runit service from mkiso.sh.
+sed -i \
+  -e 's/ udisks2 firefox/ udisks2/' \
+  -e 's/dialog cryptsetup lvm2 mdadm void-docs-browse xtools-minimal xmirror chrony tmux/dialog cryptsetup lvm2 mdadm xmirror/' \
+  -e 's/SERVICES="sshd chronyd"/SERVICES="sshd"/' \
+  mkiso.sh
 
 if grep -Eq -- '-isohybrid-(mbr|gpt|apm)' mklive.sh; then
   echo "ERROR: isohybrid flags remain in the patched mklive script" >&2
+  exit 1
+fi
+
+if grep -Eq 'SERVICES="sshd chronyd"' mkiso.sh; then
+  echo "ERROR: chronyd service is still enabled although chrony is excluded" >&2
   exit 1
 fi
 
