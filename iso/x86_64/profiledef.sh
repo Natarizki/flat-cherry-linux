@@ -6,7 +6,7 @@ iso_label="FLATCHERRY_$(date --date="@${SOURCE_DATE_EPOCH:-$(date +%s)}" +%Y%m)"
 iso_publisher="Flat Cherry Linux"
 iso_application="Flat Cherry Linux Live/Install Media"
 iso_version="0.1.0-alpha.1"
-install_dir="flat-cherry"
+install_dir="flatcherry"
 
 bootmodes=('bios.syslinux'
            'uefi.grub')
