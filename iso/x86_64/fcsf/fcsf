@@ -109,6 +109,7 @@ show_detection() {
 select_smart() {
   local key
   for key in "${!FOUND[@]}"; do SELECTED["$key"]=1; done
+  [[ ${FOUND[cpu-amd]+yes} ]] && SELECTED[amd]=1
 }
 
 select_manual() {
