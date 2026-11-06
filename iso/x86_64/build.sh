@@ -58,6 +58,7 @@ awk '
   { print }
 ' mklive.sh > mklive.sh.esp
 mv mklive.sh.esp mklive.sh
+chmod +x mklive.sh
 
 if [[ "$(grep -c '^EFI_EXPORT_TMPDIR=' mklive.sh)" -ne 1 ]]; then
   echo "ERROR: failed to add IA32/x64 fallback loaders to the ISO tree" >&2
