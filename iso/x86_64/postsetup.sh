@@ -83,6 +83,25 @@ chroot "$ROOTFS" flatpak remote-add --system --if-not-exists \
 restore_resolver
 trap - EXIT
 
+# Keep network firmware in the Live ISO, but move optional GPU/CPU firmware
+# to FCSF's online XBPS installation flow. Force removal is intentional because
+# Void's base/kernel meta-packages may pull these firmware packages as dependencies.
+if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>&1; then
+  OPTIONAL_FIRMWARE=()
+  while read -r state pkgver; do
+    [ "$state" = "ii" ] || continue
+    case "$pkgver" in
+      linux-firmware-amd-*|linux-firmware-intel-*|linux-firmware-nvidia-*)
+        OPTIONAL_FIRMWARE+=("${pkgver%-*}")
+        ;;
+    esac
+  done < <(xbps-query -r "$ROOTFS" -l)
+  if [ "${#OPTIONAL_FIRMWARE[@]}" -gt 0 ]; then
+    printf 'Removing optional bundled firmware from Live ISO: %s\\n' "${OPTIONAL_FIRMWARE[*]}"
+    xbps-remove -r "$ROOTFS" -fy "${OPTIONAL_FIRMWARE[@]}"
+  fi
+fi
+
 # Remove non-essential documentation while preserving licenses and package metadata.
 for path in \
   "$ROOTFS/usr/share/doc" \
@@ -101,6 +120,9 @@ for path in "$ROOTFS/usr/share/fonts" "$ROOTFS/usr/share/doc" "$ROOTFS/usr/share
     echo "Removed: ${path#"$ROOTFS"}"
   fi
 done
+
+# Install FPM, the Flat Cherry frontend for Flatpak (XBPS remains native).
+install -D -m 0755 "$SCRIPT_DIR/fpm/fpm" "$ROOTFS/usr/bin/fpm"
 
 # Install the FCSF selector in the Live ISO; the installer invokes it after mounting the target.
 install -D -m 0755 "$SCRIPT_DIR/fcsf/fcsf" "$ROOTFS/usr/bin/fcsf"
