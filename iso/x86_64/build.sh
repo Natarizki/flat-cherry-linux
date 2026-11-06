@@ -65,7 +65,7 @@ if [[ "$(grep -c '^EFI_EXPORT_TMPDIR=' mklive.sh)" -ne 1 ]]; then
   exit 1
 fi
 
-./mkiso.sh -a x86_64 -b lxde -- -p "flatpak linux-firmware-amd linux-firmware-nvidia" -x "$POSTSETUP" -T "Flat Cherry Linux" -o "$ISO_PATH"
+./mkiso.sh -a x86_64 -b lxde -- -p "flatpak linux-firmware-network" -x "$POSTSETUP" -T "Flat Cherry Linux" -o "$ISO_PATH"
 
 test -s "$ISO_PATH"
 echo "Built ISO: $ISO_PATH"
