@@ -1,15 +1,11 @@
 #!/usr/bin/env bash
 # Flat Cherry Selective Firmware (FCSF)
-# Selects firmware already present in the Live ISO; no network access is used.
+# Network firmware is bundled in the Live ISO; additional firmware is installed
+# into the target system from the configured Void XBPS repositories.
 set -euo pipefail
 
-VERSION="0.1.0"
-SOURCE_ROOT="${FCSF_SOURCE_ROOT:-/}"
+VERSION="0.2.0"
 TARGET_ROOT="${FCSF_TARGET_ROOT:-/mnt}"
-FIRMWARE_DIR="${FCSF_FIRMWARE_DIR:-$SOURCE_ROOT/usr/lib/firmware}"
-CPU_DIR="${FCSF_CPU_DIR:-$SOURCE_ROOT/usr/lib/firmware}"
-STATE_DIR="${FCSF_STATE_DIR:-$TARGET_ROOT/var/lib/flatcherry/fcsf}"
-REPORT_DIR="${FCSF_REPORT_DIR:-$TARGET_ROOT/var/log/flatcherry}"
 MODE="${1:-menu}"
 
 declare -A FOUND=()
@@ -21,170 +17,120 @@ Usage: fcsf [menu|smart|generic|manual|detect|--help]
 
 Modes:
   menu     Show the interactive mode selector (default)
-  smart    Detect local hardware and select matching vendor firmware
-  generic  Keep the complete firmware collection
-  manual   Let the user choose firmware vendors
-  detect   Print detected hardware vendors without changing files
+  smart    Detect hardware; keep network firmware and fetch matching GPU/CPU firmware
+  generic  Fetch all supported firmware categories
+  manual   Let the user choose additional firmware categories
+  detect   Print detected hardware categories without changing files
 
-For installation-time use, set FCSF_SOURCE_ROOT to the Live ISO root and
-FCSF_TARGET_ROOT to the installed system's mounted root.
+Network firmware is included in the Live ISO. Additional firmware requires internet.
+Set FCSF_TARGET_ROOT to the installed system root (default: /mnt).
 EOF
 }
 
 need_root() {
   if [[ $EUID -ne 0 ]]; then
-    echo "FCSF: run as root to apply firmware to the target system." >&2
+    echo "FCSF: run as root to install firmware into the target system." >&2
     exit 1
   fi
 }
 
 detect_hardware() {
   local f vendor class
-  # PCI vendor IDs. Class 0x02 identifies network controllers.
   if [[ -d /sys/bus/pci/devices ]]; then
     for f in /sys/bus/pci/devices/*; do
       [[ -r "$f/vendor" ]] || continue
       vendor=$(<"$f/vendor")
       class="000000"
       [[ -r "$f/class" ]] && class=$(<"$f/class")
-      case "$vendor" in
-        0x1002) FOUND[amd]=1 ;;
-        0x10de) FOUND[nvidia]=1 ;;
-        0x8086) FOUND[intel]=1 ;;
-        0x14e4) FOUND[broadcom]=1 ;;
-        0x10ec) FOUND[realtek]=1 ;;
-        0x14c3|0x037a) FOUND[mediatek]=1 ;;
-        0x168c|0x17cb) FOUND[qualcomm]=1 ;;
-      esac
-      if [[ "$class" == 0x02* ]]; then
+      # Only graphics-class PCI devices select GPU firmware.
+      if [[ "$class" == 0x03* ]]; then
         case "$vendor" in
-          0x1002) FOUND[network-amd]=1 ;;
-          0x8086) FOUND[network-intel]=1 ;;
-          0x14e4) FOUND[network-broadcom]=1 ;;
-          0x10ec) FOUND[network-realtek]=1 ;;
-          0x14c3|0x037a) FOUND[network-mediatek]=1 ;;
-          0x168c|0x17cb) FOUND[network-qualcomm]=1 ;;
+          0x1002) FOUND[amd]=1 ;;
+          0x10de) FOUND[nvidia]=1 ;;
+          0x8086) FOUND[intel]=1 ;;
         esac
       fi
     done
   fi
 
-  # USB vendor IDs (useful for USB Wi-Fi and Bluetooth adapters).
-  if [[ -d /sys/bus/usb/devices ]]; then
-    for f in /sys/bus/usb/devices/*; do
-      [[ -r "$f/idVendor" ]] || continue
-      vendor=$(<"$f/idVendor")
-      case "$vendor" in
-        0x0bda|0bda) FOUND[realtek]=1; FOUND[network-realtek]=1 ;;
-        0x0a5c|05ac) FOUND[broadcom]=1; FOUND[network-broadcom]=1 ;;
-        0x0e8d|0e8d) FOUND[mediatek]=1; FOUND[network-mediatek]=1 ;;
-        0x8087|8087) FOUND[intel]=1; FOUND[network-intel]=1 ;;
-        0x0cf3|0cf3) FOUND[qualcomm]=1; FOUND[network-qualcomm]=1 ;;
-      esac
-    done
-  fi
-
-  # CPU vendor is independent from PCI/USB firmware selection.
+  # CPU microcode is independent of PCI graphics hardware.
   if [[ -r /proc/cpuinfo ]]; then
-    if grep -qim1 'vendor_id[[:space:]]*:[[:space:]]*AuthenticAMD' /proc/cpuinfo; then
-      FOUND[cpu-amd]=1
-    fi
-    if grep -qim1 'vendor_id[[:space:]]*:[[:space:]]*GenuineIntel' /proc/cpuinfo; then
-      FOUND[cpu-intel]=1
-    fi
+    grep -qim1 'vendor_id[[:space:]]*:[[:space:]]*AuthenticAMD' /proc/cpuinfo && FOUND[cpu-amd]=1 || true
+    grep -qim1 'vendor_id[[:space:]]*:[[:space:]]*GenuineIntel' /proc/cpuinfo && FOUND[cpu-intel]=1 || true
   fi
 }
 
 show_detection() {
-  echo "FCSF $VERSION — detected hardware"
+  echo "FCSF $VERSION — detected firmware categories"
   local key
-  for key in cpu-amd cpu-intel amd intel nvidia broadcom realtek mediatek qualcomm; do
-    if [[ ${FOUND[$key]+yes} ]]; then printf '  [detected] %s\n' "$key"; fi
+  for key in amd intel nvidia cpu-amd cpu-intel; do
+    [[ ${FOUND[$key]+yes} ]] && printf '  [detected] %s\n' "$key"
   done
-  for key in network-amd network-intel network-broadcom network-realtek network-mediatek network-qualcomm; do
-    if [[ ${FOUND[$key]+yes} ]]; then printf '  [network]  %s\n' "$key"; fi
-  done
+  echo "  [bundled]  network (Wi-Fi/Ethernet firmware)"
 }
 
 select_smart() {
   local key
-  for key in "${!FOUND[@]}"; do SELECTED["$key"]=1; done
+  for key in amd intel nvidia; do
+    [[ ${FOUND[$key]+yes} ]] && SELECTED["$key"]=1
+  done
   [[ ${FOUND[cpu-amd]+yes} ]] && SELECTED[amd]=1
 }
 
 select_manual() {
   local key answer
-  echo "Choose firmware vendors (y/N):"
-  for key in amd intel nvidia broadcom realtek mediatek qualcomm; do
-    read -r -p "  Include $key? " answer
+  echo "Choose additional firmware categories (y/N):"
+  for key in amd intel nvidia; do
+    read -r -p "  Include $key firmware? " answer
     [[ "$answer" =~ ^[Yy]$ ]] && SELECTED["$key"]=1
   done
-  for key in cpu-amd cpu-intel; do
-    [[ ${FOUND[$key]+yes} ]] && SELECTED["$key"]=1
-  done
 }
 
-# Vendor directories are copied only when present in the ISO's firmware tree.
-# Keep this map conservative; unmatched firmware remains available in the ISO.
-vendor_paths() {
-  case "$1" in
-    amd)       printf '%s\n' 'amd*' amdgpu radeon ;;
-    intel)     printf '%s\n' i915 xe 'iwlwifi*' 'intel*' 'e100*' ;;
-    nvidia)    printf '%s\n' nvidia ;;
-    broadcom)  printf '%s\n' brcm ;;
-    realtek)   printf '%s\n' 'rtl*' 'rtw*' ;;
-    mediatek)  printf '%s\n' 'mt7*.bin*' mediatek ;;
-    qualcomm)  printf '%s\n' qca 'ath*' 'ar*' 'wil6210*' ;;
-  esac
-}
-
-apply_selection() {
+install_selection() {
   need_root
-  [[ -d "$FIRMWARE_DIR" ]] || {
-    echo "FCSF: firmware source not found: $FIRMWARE_DIR" >&2
+  [[ -d "$TARGET_ROOT" ]] || {
+    echo "FCSF: target root does not exist: $TARGET_ROOT" >&2
     exit 1
   }
-  mkdir -p "$STATE_DIR" "$REPORT_DIR" "$TARGET_ROOT/usr/lib/firmware"
-  local report="$REPORT_DIR/fcsf-report.txt"
-  : > "$report"
-  echo "FCSF $VERSION mode=$MODE" | tee -a "$report"
+  command -v xbps-install >/dev/null 2>&1 || {
+    echo "FCSF: xbps-install is unavailable in the Live environment." >&2
+    exit 1
+  }
+  [[ -d "$TARGET_ROOT/var/db/xbps" ]] || {
+    echo "FCSF: target does not look like an initialized Void system (missing /var/db/xbps)." >&2
+    exit 1
+  }
 
+  local -a packages=(linux-firmware-network)
   if [[ "$MODE" == generic ]]; then
-    cp -a "$FIRMWARE_DIR/." "$TARGET_ROOT/usr/lib/firmware/"
-    echo "Generic mode: copied the complete offline firmware collection." | tee -a "$report"
-    return 0
+    packages+=(linux-firmware-amd linux-firmware-intel linux-firmware-nvidia)
+  else
+    [[ ${SELECTED[amd]+yes} ]] && packages+=(linux-firmware-amd)
+    [[ ${SELECTED[intel]+yes} ]] && packages+=(linux-firmware-intel)
+    [[ ${SELECTED[nvidia]+yes} ]] && packages+=(linux-firmware-nvidia)
   fi
 
-  local vendor path item copied=0
-  for vendor in amd intel nvidia broadcom realtek mediatek qualcomm; do
-    [[ ${SELECTED[$vendor]+yes} ]] || continue
-    while IFS= read -r path; do
-      [[ -n "$path" ]] || continue
-      local -a matches=()
-      shopt -s nullglob
-      matches=( "$FIRMWARE_DIR"/$path )
-      shopt -u nullglob
-      for item in "${matches[@]}"; do
-        [[ -e "$item" ]] || continue
-        cp -a "$item" "$TARGET_ROOT/usr/lib/firmware/"
-        printf 'included vendor=%s path=%s\n' "$vendor" "${item#"$FIRMWARE_DIR"/}" | tee -a "$report"
-        copied=$((copied + 1))
-      done
-    done < <(vendor_paths "$vendor")
+  # Remove duplicates while preserving order.
+  local -A seen=()
+  local -a unique=()
+  local pkg
+  for pkg in "${packages[@]}"; do
+    [[ ${seen[$pkg]+yes} ]] && continue
+    seen[$pkg]=1
+    unique+=("$pkg")
   done
 
-  # Microcode packages are handled as separate CPU-specific payloads.
-  if [[ ${SELECTED[cpu-amd]+yes} && -d "$CPU_DIR/amd-ucode" ]]; then
-    cp -a "$CPU_DIR/amd-ucode" "$TARGET_ROOT/usr/lib/firmware/"
-    echo "included cpu-microcode=amd" | tee -a "$report"
-  fi
-  if [[ ${SELECTED[cpu-intel]+yes} && -d "$CPU_DIR/intel-ucode" ]]; then
-    cp -a "$CPU_DIR/intel-ucode" "$TARGET_ROOT/usr/lib/firmware/"
-    echo "included cpu-microcode=intel" | tee -a "$report"
-  fi
+  echo "FCSF: installing firmware packages into $TARGET_ROOT"
+  printf '  %s\n' "${unique[@]}"
+  echo "FCSF: internet access is required for any package not already available locally."
+  xbps-install -r "$TARGET_ROOT" -Sy "${unique[@]}"
 
-  printf 'vendor_paths_copied=%s\n' "$copied" | tee -a "$report"
-  echo "NOTE: FCSF does not remove the Live ISO firmware; it stages selected payloads on the target." | tee -a "$report"
+  mkdir -p "$TARGET_ROOT/var/log/flatcherry"
+  {
+    echo "FCSF $VERSION mode=$MODE"
+    printf 'installed_package=%s\n' "${unique[@]}"
+    echo "network_firmware=linux-firmware-network (always selected)"
+  } | tee "$TARGET_ROOT/var/log/flatcherry/fcsf-report.txt"
 }
 
 case "$MODE" in
@@ -196,9 +142,9 @@ case "$MODE" in
     ;;
   menu)
     echo "Flat Cherry Firmware Setup"
-    echo "1) Smart — detect this computer"
-    echo "2) Generic — keep all firmware"
-    echo "3) Manual — choose vendors"
+    echo "1) Smart Online — detect this computer"
+    echo "2) Generic Online — install all supported firmware"
+    echo "3) Manual Online — choose firmware categories"
     read -r -p "Select [1-3]: " choice
     case "$choice" in
       1) MODE=smart ;;
@@ -222,4 +168,4 @@ case "$MODE" in
   generic) ;;
 esac
 
-apply_selection
+install_selection
