@@ -51,34 +51,6 @@ for candidate in "$ROOTFS/usr/lib/firmware" "$ROOTFS/lib/firmware"; do
   fi
 done
 
-echo "--- Firmware audit root ---"
-if [ -n "$FIRMWARE_DIR" ]; then
-  printf '%s\n' "$FIRMWARE_DIR" | tee "$AUDIT_DIR/firmware-root.txt"
-
-  echo "--- Largest unique firmware files (top 50) ---"
-  find "$FIRMWARE_DIR" -type f -printf '%s %p\n' \
-    | sort -nr | sed -n '1,50p' \
-    | tee "$AUDIT_DIR/largest-firmware-files.txt"
-
-  echo "--- Firmware directory breakdown (bytes) ---"
-  du -x -B1 -d2 "$FIRMWARE_DIR" 2>/dev/null \
-    | sort -nr | tee "$AUDIT_DIR/firmware-directory-sizes.txt"
-
-  echo "--- Intel firmware breakdown (bytes) ---"
-  if [ -d "$FIRMWARE_DIR/intel" ]; then
-    du -x -B1 -d2 "$FIRMWARE_DIR/intel" 2>/dev/null \
-      | sort -nr | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
-    echo "--- Largest Intel firmware files (top 60) ---"
-    find "$FIRMWARE_DIR/intel" -type f -printf '%s %p\n' \
-      | sort -nr | sed -n '1,60p' \
-      | tee "$AUDIT_DIR/largest-intel-firmware-files.txt"
-  else
-    echo "No intel/ firmware directory found" \
-      | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
-  fi
-else
-  echo "WARNING: no firmware directory found" | tee "$AUDIT_DIR/firmware-root.txt"
-fi
 
 # The image chroot does not automatically inherit the build container's DNS
 # resolver. Temporarily provide it so Flatpak can download Flathub's signed
@@ -140,6 +112,36 @@ else
   echo "Marvell Prestera firmware not present; nothing to prune" \
     | tee "$AUDIT_DIR/firmware-prune-report.txt"
 fi
+
+echo "--- Firmware audit root ---"
+if [ -n "$FIRMWARE_DIR" ]; then
+  printf '%s\n' "$FIRMWARE_DIR" | tee "$AUDIT_DIR/firmware-root.txt"
+
+  echo "--- Largest unique firmware files (top 50) ---"
+  find "$FIRMWARE_DIR" -type f -printf '%s %p\n' \
+    | sort -nr | sed -n '1,50p' \
+    | tee "$AUDIT_DIR/largest-firmware-files.txt"
+
+  echo "--- Firmware directory breakdown (bytes) ---"
+  du -x -B1 -d2 "$FIRMWARE_DIR" 2>/dev/null \
+    | sort -nr | tee "$AUDIT_DIR/firmware-directory-sizes.txt"
+
+  echo "--- Intel firmware breakdown (bytes) ---"
+  if [ -d "$FIRMWARE_DIR/intel" ]; then
+    du -x -B1 -d2 "$FIRMWARE_DIR/intel" 2>/dev/null \
+      | sort -nr | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
+    echo "--- Largest Intel firmware files (top 60) ---"
+    find "$FIRMWARE_DIR/intel" -type f -printf '%s %p\n' \
+      | sort -nr | sed -n '1,60p' \
+      | tee "$AUDIT_DIR/largest-intel-firmware-files.txt"
+  else
+    echo "No intel/ firmware directory found" \
+      | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
+  fi
+else
+  echo "WARNING: no firmware directory found" | tee "$AUDIT_DIR/firmware-root.txt"
+fi
+
 
 # Remove non-essential documentation while preserving licenses and package metadata.
 for path in \
