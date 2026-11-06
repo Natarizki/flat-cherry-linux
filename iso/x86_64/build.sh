@@ -42,6 +42,28 @@ if ! grep -Fq 'FONTS="font-inter"' mkiso.sh; then
   exit 1
 fi
 
+# Export both removable-media UEFI fallback loaders from void-mklive's
+# embedded FAT boot image into the ISO filesystem. This makes them available
+# to ISO-to-ESP writers without changing the El Torito boot image.
+awk '
+  /^rm -rf "\$GRUB_EFI_TMPDIR"$/ {
+    print "EFI_EXPORT_TMPDIR=\"$(mktemp --tmpdir=\"$BUILDDIR\" -dt esp-export.XXXXX)\""
+    print "mount -o loop,ro \"$GRUB_DIR/efiboot.img\" \"$EFI_EXPORT_TMPDIR\" >/dev/null"
+    print "mkdir -p \"$IMAGEDIR/EFI/BOOT\""
+    print "install -m 0644 \"$EFI_EXPORT_TMPDIR/EFI/BOOT/BOOTIA32.EFI\" \"$IMAGEDIR/EFI/BOOT/BOOTIA32.EFI\""
+    print "install -m 0644 \"$EFI_EXPORT_TMPDIR/EFI/BOOT/BOOTX64.EFI\" \"$IMAGEDIR/EFI/BOOT/BOOTX64.EFI\""
+    print "umount \"$EFI_EXPORT_TMPDIR\""
+    print "rmdir \"$EFI_EXPORT_TMPDIR\""
+  }
+  { print }
+' mkiso.sh > mkiso.sh.esp
+mv mkiso.sh.esp mkiso.sh
+
+if [[ "$(grep -c '^EFI_EXPORT_TMPDIR=' mkiso.sh)" -ne 1 ]]; then
+  echo "ERROR: failed to add IA32/x64 fallback loaders to the ISO tree" >&2
+  exit 1
+fi
+
 ./mkiso.sh -a x86_64 -b lxde -- -p "flatpak linux-firmware-amd linux-firmware-nvidia" -x "$POSTSETUP" -T "Flat Cherry Linux" -o "$ISO_PATH"
 
 test -s "$ISO_PATH"
