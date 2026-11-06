@@ -26,6 +26,9 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Validate FCSF shell syntax
+        run: bash -n iso/x86_64/fcsf/fcsf iso/x86_64/postsetup.sh iso/x86_64/build.sh
+
       - name: Build Void-based live ISO
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/out"
