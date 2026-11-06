@@ -112,8 +112,8 @@ if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>
 
   if [ "${#INSTALLED_REMOVE[@]}" -gt 0 ]; then
     # De-duplicate package names while preserving the explicit allowlist.
-    mapfile -t INSTALLED_REMOVE < <(printf '%s\\n' "${INSTALLED_REMOVE[@]}" | sort -u)
-    printf 'Removing excluded Live packages: %s\\n' "${INSTALLED_REMOVE[*]}"
+    mapfile -t INSTALLED_REMOVE < <(printf '%s\n' "${INSTALLED_REMOVE[@]}" | sort -u)
+    printf 'Removing excluded Live packages: %s\n' "${INSTALLED_REMOVE[*]}"
     xbps-remove -r "$ROOTFS" -y "${INSTALLED_REMOVE[@]}"
   else
     echo "No excluded packages are installed; nothing to remove"
