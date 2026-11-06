@@ -111,10 +111,25 @@ if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>
   done < <(xbps-query -r "$ROOTFS" -l)
 
   if [ "${#INSTALLED_REMOVE[@]}" -gt 0 ]; then
-    # De-duplicate package names while preserving the explicit allowlist.
+    # De-duplicate candidates, then remove one package per transaction.
+    # Some Void packages are required by broader metapackages/codecs. A blocked
+    # removal must be reported and skipped, not abort the entire ISO build.
     mapfile -t INSTALLED_REMOVE < <(printf '%s\n' "${INSTALLED_REMOVE[@]}" | sort -u)
-    printf 'Removing excluded Live packages: %s\n' "${INSTALLED_REMOVE[*]}"
-    xbps-remove -r "$ROOTFS" -y "${INSTALLED_REMOVE[@]}"
+    printf 'Checking excluded Live packages: %s\n' "${INSTALLED_REMOVE[*]}"
+    REMOVED_REMOVE=()
+    KEPT_REMOVE=()
+    for package in "${INSTALLED_REMOVE[@]}"; do
+      if xbps-remove -r "$ROOTFS" -y "$package"; then
+        REMOVED_REMOVE+=("$package")
+      else
+        echo "WARNING: keeping $package because XBPS reports dependency conflicts"
+        KEPT_REMOVE+=("$package")
+      fi
+    done
+    printf 'Removed excluded packages: %s\n' "${REMOVED_REMOVE[*]:-(none)}"
+    printf 'Kept dependency-protected packages: %s\n' "${KEPT_REMOVE[*]:-(none)}"
+    printf '%s\n' "${REMOVED_REMOVE[@]}" > "$AUDIT_DIR/packages-removed.txt"
+    printf '%s\n' "${KEPT_REMOVE[@]}" > "$AUDIT_DIR/packages-kept-dependencies.txt"
   else
     echo "No excluded packages are installed; nothing to remove"
   fi
