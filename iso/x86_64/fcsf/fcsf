@@ -127,13 +127,13 @@ select_manual() {
 # Keep this map conservative; unmatched firmware remains available in the ISO.
 vendor_paths() {
   case "$1" in
-    amd)       printf '%s\n' amdgpu radeon ;;
-    intel)     printf '%s\n' i915 xe iwlwifi ;;
+    amd)       printf '%s\n' 'amd*' amdgpu radeon ;;
+    intel)     printf '%s\n' i915 xe 'iwlwifi*' 'intel*' 'e100*' ;;
     nvidia)    printf '%s\n' nvidia ;;
     broadcom)  printf '%s\n' brcm ;;
-    realtek)   printf '%s\n' rtlwifi rtl_bt rtw88 rtw89 ;;
-    mediatek)  printf '%s\n' mediatek ;;
-    qualcomm)  printf '%s\n' ath10k ath11k ath12k ;;
+    realtek)   printf '%s\n' 'rtl*' 'rtw*' ;;
+    mediatek)  printf '%s\n' 'mt7*.bin*' mediatek ;;
+    qualcomm)  printf '%s\n' qca 'ath*' 'ar*' 'wil6210*' ;;
   esac
 }
 
@@ -154,17 +154,21 @@ apply_selection() {
     return 0
   fi
 
-  local vendor path copied=0
+  local vendor path item copied=0
   for vendor in amd intel nvidia broadcom realtek mediatek qualcomm; do
     [[ ${SELECTED[$vendor]+yes} ]] || continue
     while IFS= read -r path; do
       [[ -n "$path" ]] || continue
-      if [[ -e "$FIRMWARE_DIR/$path" ]]; then
-        mkdir -p "$TARGET_ROOT/usr/lib/firmware"
-        cp -a "$FIRMWARE_DIR/$path" "$TARGET_ROOT/usr/lib/firmware/"
-        printf 'included vendor=%s path=%s\n' "$vendor" "$path" | tee -a "$report"
+      local -a matches=()
+      shopt -s nullglob
+      matches=( "$FIRMWARE_DIR"/$path )
+      shopt -u nullglob
+      for item in "${matches[@]}"; do
+        [[ -e "$item" ]] || continue
+        cp -a "$item" "$TARGET_ROOT/usr/lib/firmware/"
+        printf 'included vendor=%s path=%s\n' "$vendor" "${item#"$FIRMWARE_DIR"/}" | tee -a "$report"
         copied=$((copied + 1))
-      fi
+      done
     done < <(vendor_paths "$vendor")
   done
 
