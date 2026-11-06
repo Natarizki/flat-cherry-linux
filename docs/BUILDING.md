@@ -41,3 +41,22 @@ The supported project workflow is GitHub Actions. The build script expects:
 - the upstream `void-mklive` checkout.
 
 The project build script is `iso/x86_64/build.sh`.
+
+## Firmware selection (FCSF)
+
+The initial Flat Cherry Selective Firmware (FCSF) utility is installed at `/usr/bin/fcsf` in the Live ISO.
+
+- `fcsf menu`: choose Smart, Generic, or Manual.
+- Smart reads PCI, USB, and CPU vendor identifiers and stages matching firmware paths.
+- Generic stages the complete firmware collection already present in the ISO.
+- Manual asks the user to choose vendors.
+- All selection is offline; no firmware is downloaded.
+
+The current build includes the Void firmware packages pulled by the x86_64 base-system dependencies. FCSF is an initial command-line staging engine, not yet connected to an installer UI. It must be invoked with the installed target mounted, for example:
+
+```sh
+FCSF_SOURCE_ROOT=/ FCSF_TARGET_ROOT=/mnt fcsf menu
+```
+
+FCSF does not yet configure Intel CPU microcode/initramfs automatically. Intel microcode is a separate `intel-ucode` package and needs its own installation/initramfs step. The Live ISO keeps its firmware intact so devices needed during the live session remain usable.
+
