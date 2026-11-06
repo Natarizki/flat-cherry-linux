@@ -5,7 +5,7 @@ set -euo pipefail
 
 VERSION="0.1.0"
 SOURCE_ROOT="${FCSF_SOURCE_ROOT:-/}"
-TARGET_ROOT="${FCSF_TARGET_ROOT:-/}"
+TARGET_ROOT="${FCSF_TARGET_ROOT:-/mnt}"
 FIRMWARE_DIR="${FCSF_FIRMWARE_DIR:-$SOURCE_ROOT/usr/lib/firmware}"
 CPU_DIR="${FCSF_CPU_DIR:-$SOURCE_ROOT/usr/lib/firmware}"
 STATE_DIR="${FCSF_STATE_DIR:-$TARGET_ROOT/var/lib/flatcherry/fcsf}"
@@ -149,8 +149,8 @@ apply_selection() {
   echo "FCSF $VERSION mode=$MODE" | tee -a "$report"
 
   if [[ "$MODE" == generic ]]; then
-    echo "Generic mode: preserving the complete firmware collection." | tee -a "$report"
-    echo "No firmware pruning or network download performed." | tee -a "$report"
+    cp -a "$FIRMWARE_DIR/." "$TARGET_ROOT/usr/lib/firmware/"
+    echo "Generic mode: copied the complete offline firmware collection." | tee -a "$report"
     return 0
   fi
 
