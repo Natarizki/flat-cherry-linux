@@ -80,6 +80,46 @@ chroot "$ROOTFS" flatpak remote-add --system --if-not-exists \
 restore_resolver
 trap - EXIT
 
+# Remove explicitly excluded desktop/media/storage packages from the Live rootfs.
+# Match installed package-version entries against exact package-name prefixes;
+# this avoids passing the descriptive text from "xbps-query -l" to xbps-remove.
+if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>&1; then
+  REMOVE_CANDIDATES=(
+    lxdm
+    lxlauncher
+    xf86-video-dummy
+    gvfs-afc
+    faac
+    twolame
+    xvidcore
+    espeakup
+    speech-dispatcher
+    flite
+    mdadm
+    thin-provisioning-tools
+  )
+  INSTALLED_REMOVE=()
+  while read -r state pkgver _description; do
+    [ "$state" = "ii" ] || continue
+    for package in "${REMOVE_CANDIDATES[@]}"; do
+      case "$pkgver" in
+        "$package"-*)
+          INSTALLED_REMOVE+=("$package")
+          ;;
+      esac
+    done
+  done < <(xbps-query -r "$ROOTFS" -l)
+
+  if [ "${#INSTALLED_REMOVE[@]}" -gt 0 ]; then
+    # De-duplicate package names while preserving the explicit allowlist.
+    mapfile -t INSTALLED_REMOVE < <(printf '%s\\n' "${INSTALLED_REMOVE[@]}" | sort -u)
+    printf 'Removing excluded Live packages: %s\\n' "${INSTALLED_REMOVE[*]}"
+    xbps-remove -r "$ROOTFS" -y "${INSTALLED_REMOVE[@]}"
+  else
+    echo "No excluded packages are installed; nothing to remove"
+  fi
+fi
+
 # Keep network bootstrap firmware and firmware required by the base system.
 # In particular, linux-firmware-intel also carries Intel Wi-Fi firmware, while
 # linux-firmware-nvidia is a dependency of linux-base in this Void package set.
