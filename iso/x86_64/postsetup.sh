@@ -80,22 +80,28 @@ chroot "$ROOTFS" flatpak remote-add --system --if-not-exists \
 restore_resolver
 trap - EXIT
 
-# Keep network firmware in the Live ISO, but move optional GPU/CPU firmware
-# to FCSF's online XBPS installation flow. Force removal is intentional because
-# Void's base/kernel meta-packages may pull these firmware packages as dependencies.
+# Keep network bootstrap firmware and firmware required by the base system.
+# In particular, linux-firmware-intel also carries Intel Wi-Fi firmware, while
+# linux-firmware-nvidia is a dependency of linux-base in this Void package set.
+# Only remove the optional AMD GPU firmware package from the Live rootfs.
 if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>&1; then
-  OPTIONAL_FIRMWARE=()
-  while read -r state pkgver; do
+  AMD_FIRMWARE_INSTALLED=no
+  while read -r state pkgver _description; do
     [ "$state" = "ii" ] || continue
-    case "$pkgver" in
-      linux-firmware-amd-*|linux-firmware-intel-*|linux-firmware-nvidia-*)
-        OPTIONAL_FIRMWARE+=("${pkgver%-*}")
-        ;;
-    esac
+    pkgname="${pkgver%-[0-9]*}"
+    if [ "$pkgname" = "linux-firmware-amd" ]; then
+      AMD_FIRMWARE_INSTALLED=yes
+      break
+    fi
   done < <(xbps-query -r "$ROOTFS" -l)
-  if [ "${#OPTIONAL_FIRMWARE[@]}" -gt 0 ]; then
-    printf 'Removing optional bundled firmware from Live ISO: %s\\n' "${OPTIONAL_FIRMWARE[*]}"
-    xbps-remove -r "$ROOTFS" -fy "${OPTIONAL_FIRMWARE[@]}"
+
+  if [ "$AMD_FIRMWARE_INSTALLED" = yes ]; then
+    echo "Removing optional AMD GPU firmware from Live ISO: linux-firmware-amd"
+    if ! xbps-remove -r "$ROOTFS" -fy linux-firmware-amd; then
+      echo "WARNING: could not remove linux-firmware-amd; keeping it in the Live ISO"
+    fi
+  else
+    echo "linux-firmware-amd is not installed; nothing to remove"
   fi
 fi
 
