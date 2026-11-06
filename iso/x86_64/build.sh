@@ -46,7 +46,7 @@ fi
 # embedded FAT boot image into the ISO filesystem. This makes them available
 # to ISO-to-ESP writers without changing the El Torito boot image.
 awk '
-  /^rm -rf "\$GRUB_EFI_TMPDIR"$/ {
+  /^[[:space:]]*rm -rf "\$GRUB_EFI_TMPDIR"[[:space:]]*$/ {
     print "EFI_EXPORT_TMPDIR=\"$(mktemp --tmpdir=\"$BUILDDIR\" -dt esp-export.XXXXX)\""
     print "mount -o loop,ro \"$GRUB_DIR/efiboot.img\" \"$EFI_EXPORT_TMPDIR\" >/dev/null"
     print "mkdir -p \"$IMAGEDIR/EFI/BOOT\""
