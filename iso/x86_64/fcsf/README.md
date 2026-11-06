@@ -4,7 +4,8 @@ FCSF is the firmware-selection component for Flat Cherry Linux.
 
 ## Firmware policy
 
-- **Network firmware is bundled** in the Live ISO through Void's `linux-firmware-network` package (which depends on Broadcom network firmware).
+- **Network bootstrap firmware is bundled** in the Live ISO through Void's `linux-firmware-network` package. Intel WLAN, Broadcom, Atheros, Realtek, and common network firmware remain available offline.
+- The Live ISO omits Marvell Prestera switch-ASIC blobs to save space. FCSF installs the complete network firmware package into the installed target.
 - **Additional firmware is online** and installed into the target system with XBPS.
 - FCSF always selects network firmware for the installed system, then selects additional packages based on detected hardware or user choice.
 
@@ -43,4 +44,4 @@ FCSF is a firmware-selection/staging engine and is not yet wired into a graphica
 
 Hardware detection currently distinguishes PCI graphics-class devices and CPU vendors. It does not yet map every PCI/USB device ID to an exact driver/firmware requirement. Intel CPU microcode activation is not implemented here. Validate package availability and target XBPS configuration on each supported release.
 
-The Live ISO retains network firmware so supported Wi-Fi/Ethernet devices can connect before optional firmware is downloaded. Additional firmware is installed only into the target system.
+The Live ISO retains network bootstrap firmware so supported Wi-Fi/Ethernet devices can connect before optional firmware is downloaded. Only Marvell Prestera switch-ASIC blobs are pruned from the Live image; the complete network package remains selected for the installed target. Additional firmware is installed only into the target system.
