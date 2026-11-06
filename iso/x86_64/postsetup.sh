@@ -104,7 +104,7 @@ done
 
 # Install the FCSF selector in the Live ISO; the installer invokes it after mounting the target.
 install -D -m 0755 "$SCRIPT_DIR/fcsf/fcsf" "$ROOTFS/usr/bin/fcsf"
-install -D -m 0644 "$SCRIPT_DIR/fcsf/README.md" "$ROOTFS/usr/share/doc/flatcherry/fcsf/README.md"
+install -D -m 0644 "$SCRIPT_DIR/fcsf/README.md" "$ROOTFS/usr/share/flatcherry/fcsf/README.md"
 
 # Set a recognizable live-system message without changing Void's runit setup.
 cat > "$ROOTFS/etc/motd" <<'EOF'
