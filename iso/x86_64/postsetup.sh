@@ -41,19 +41,44 @@ else
   echo "WARNING: xbps-query unavailable; package-level audit skipped"
 fi
 
-echo "--- Largest firmware files (top 50) ---"
-for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
-  if [ -d "$firmware_dir" ]; then
-    find "$firmware_dir" -type f -printf '%s %p\n'
+# Resolve the firmware tree once: on Void, /lib/firmware may point to
+# /usr/lib/firmware. Auditing both paths would double-count every blob.
+FIRMWARE_DIR=""
+for candidate in "$ROOTFS/usr/lib/firmware" "$ROOTFS/lib/firmware"; do
+  if [ -d "$candidate" ]; then
+    FIRMWARE_DIR="$(readlink -f "$candidate")"
+    break
   fi
-done | sort -nr | sed -n '1,50p' | tee "$AUDIT_DIR/largest-firmware-files.txt"
+done
 
-echo "--- Firmware directory breakdown ---"
-for firmware_dir in "$ROOTFS/lib/firmware" "$ROOTFS/usr/lib/firmware"; do
-  if [ -d "$firmware_dir" ]; then
-    du -x -B1 -d2 "$firmware_dir" 2>/dev/null
+echo "--- Firmware audit root ---"
+if [ -n "$FIRMWARE_DIR" ]; then
+  printf '%s\n' "$FIRMWARE_DIR" | tee "$AUDIT_DIR/firmware-root.txt"
+
+  echo "--- Largest unique firmware files (top 50) ---"
+  find "$FIRMWARE_DIR" -type f -printf '%s %p\n' \
+    | sort -nr | sed -n '1,50p' \
+    | tee "$AUDIT_DIR/largest-firmware-files.txt"
+
+  echo "--- Firmware directory breakdown (bytes) ---"
+  du -x -B1 -d2 "$FIRMWARE_DIR" 2>/dev/null \
+    | sort -nr | tee "$AUDIT_DIR/firmware-directory-sizes.txt"
+
+  echo "--- Intel firmware breakdown (bytes) ---"
+  if [ -d "$FIRMWARE_DIR/intel" ]; then
+    du -x -B1 -d2 "$FIRMWARE_DIR/intel" 2>/dev/null \
+      | sort -nr | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
+    echo "--- Largest Intel firmware files (top 60) ---"
+    find "$FIRMWARE_DIR/intel" -type f -printf '%s %p\n' \
+      | sort -nr | sed -n '1,60p' \
+      | tee "$AUDIT_DIR/largest-intel-firmware-files.txt"
+  else
+    echo "No intel/ firmware directory found" \
+      | tee "$AUDIT_DIR/intel-firmware-directory-sizes.txt"
   fi
-done | sort -nr | tee "$AUDIT_DIR/firmware-directory-sizes.txt"
+else
+  echo "WARNING: no firmware directory found" | tee "$AUDIT_DIR/firmware-root.txt"
+fi
 
 # The image chroot does not automatically inherit the build container's DNS
 # resolver. Temporarily provide it so Flatpak can download Flathub's signed
@@ -100,6 +125,20 @@ if command -v xbps-query >/dev/null 2>&1 && command -v xbps-remove >/dev/null 2>
     printf 'Removing optional bundled firmware from Live ISO: %s\\n' "${OPTIONAL_FIRMWARE[*]}"
     xbps-remove -r "$ROOTFS" -fy "${OPTIONAL_FIRMWARE[@]}"
   fi
+fi
+
+# Marvell Prestera firmware targets switch ASICs, not ordinary client
+# Ethernet/Wi-Fi adapters. Keep the rest of linux-firmware-network in the Live
+# ISO so Intel Wi-Fi, Broadcom, Realtek, Atheros, and common NICs can bootstrap
+# internet access. FCSF installs the complete network package into the target.
+if [ -n "$FIRMWARE_DIR" ] && [ -d "$FIRMWARE_DIR/mrvl/prestera" ]; then
+  PRESTERA_BYTES="$(du -sb "$FIRMWARE_DIR/mrvl/prestera" | awk '{print $1}')"
+  rm -rf "$FIRMWARE_DIR/mrvl/prestera"
+  printf 'Pruned Live-only Marvell Prestera switch firmware: %s bytes\n' \
+    "$PRESTERA_BYTES" | tee "$AUDIT_DIR/firmware-prune-report.txt"
+else
+  echo "Marvell Prestera firmware not present; nothing to prune" \
+    | tee "$AUDIT_DIR/firmware-prune-report.txt"
 fi
 
 # Remove non-essential documentation while preserving licenses and package metadata.
