@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP="fpm"
+
+usage() {
+  cat <<'EOF'
+FPM — Flat Cherry Package Manager
+Flatpak frontend (system installation scope)
+
+Usage:
+  fpm search QUERY...
+  fpm install APP_ID...
+  fpm remove APP_ID...
+  fpm update
+  fpm list
+  fpm run APP_ID [ARGS...]
+  fpm remotes
+  fpm help
+
+FPM manages Flatpak applications only. XBPS remains the system package manager.
+EOF
+}
+
+command_name="${1:-help}"
+if [[ $# -gt 0 ]]; then shift; fi
+
+case "$command_name" in
+  search)
+    [[ $# -gt 0 ]] || { echo "FPM: search requires a query." >&2; exit 2; }
+    exec flatpak search "$@"
+    ;;
+  install)
+    [[ $# -gt 0 ]] || { echo "FPM: install requires an application ID or ref." >&2; exit 2; }
+    exec flatpak install --system --assumeyes flathub "$@"
+    ;;
+  remove|uninstall)
+    [[ $# -gt 0 ]] || { echo "FPM: remove requires an application ID." >&2; exit 2; }
+    exec flatpak uninstall --system --assumeyes "$@"
+    ;;
+  update|upgrade)
+    exec flatpak update --system --assumeyes "$@"
+    ;;
+  list)
+    exec flatpak list --system "$@"
+    ;;
+  run)
+    [[ $# -gt 0 ]] || { echo "FPM: run requires an application ID." >&2; exit 2; }
+    exec flatpak run "$@"
+    ;;
+  remotes)
+    exec flatpak remotes --system "$@"
+    ;;
+  help|-h|--help)
+    usage
+    ;;
+  *)
+    echo "FPM: unknown command: $command_name" >&2
+    usage >&2
+    exit 2
+    ;;
+esac
