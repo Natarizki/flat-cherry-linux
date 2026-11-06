@@ -43,8 +43,8 @@ if ! grep -Fq 'FONTS="font-inter"' mkiso.sh; then
 fi
 
 # Export both removable-media UEFI fallback loaders from void-mklive's
-# embedded FAT boot image into the ISO filesystem. This makes them available
-# to ISO-to-ESP writers without changing the El Torito boot image.
+# embedded FAT boot image into the ISO filesystem. The EFI image is created
+# inside mklive.sh, so inject the export immediately after its first unmount.
 awk '
   /^[[:space:]]*rm -rf "\$GRUB_EFI_TMPDIR"[[:space:]]*$/ {
     print "EFI_EXPORT_TMPDIR=\"$(mktemp --tmpdir=\"$BUILDDIR\" -dt esp-export.XXXXX)\""
@@ -56,10 +56,10 @@ awk '
     print "rmdir \"$EFI_EXPORT_TMPDIR\""
   }
   { print }
-' mkiso.sh > mkiso.sh.esp
-mv mkiso.sh.esp mkiso.sh
+' mklive.sh > mklive.sh.esp
+mv mklive.sh.esp mklive.sh
 
-if [[ "$(grep -c '^EFI_EXPORT_TMPDIR=' mkiso.sh)" -ne 1 ]]; then
+if [[ "$(grep -c '^EFI_EXPORT_TMPDIR=' mklive.sh)" -ne 1 ]]; then
   echo "ERROR: failed to add IA32/x64 fallback loaders to the ISO tree" >&2
   exit 1
 fi
