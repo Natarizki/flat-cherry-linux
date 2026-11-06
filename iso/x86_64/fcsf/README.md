@@ -2,13 +2,18 @@
 
 FCSF is the firmware-selection component for Flat Cherry Linux.
 
+## Firmware policy
+
+- **Network firmware is bundled** in the Live ISO through Void's `linux-firmware-network` package (which depends on Broadcom network firmware).
+- **Additional firmware is online** and installed into the target system with XBPS.
+- FCSF always selects network firmware for the installed system, then selects additional packages based on detected hardware or user choice.
+
 ## User-facing modes
 
-- **Smart**: inspect the current machine's PCI, USB and CPU vendor identifiers, then stage firmware associated with detected vendors.
-- **Generic**: retain the complete firmware collection already present in the ISO.
-- **Manual**: let the user select firmware vendors.
-
-All modes are offline. FCSF does not download firmware.
+- **Smart Online**: detect PCI graphics and CPU vendors, keep network firmware, and install matching additional firmware.
+- **Generic Online**: install AMD, Intel, NVIDIA and network firmware packages.
+- **Manual Online**: let the user select additional AMD, Intel and NVIDIA firmware packages.
+- **Detect**: report detected categories without installing anything.
 
 ## Invocation
 
@@ -20,16 +25,22 @@ fcsf generic
 fcsf manual
 ```
 
-For installer integration, mount the installed system at `/mnt` and expose the Live ISO firmware tree:
+For installer integration, initialize and mount the installed Void system at `/mnt`, connect to the internet, then run FCSF as root:
 
 ```sh
-FCSF_SOURCE_ROOT=/ FCSF_TARGET_ROOT=/mnt fcsf menu
+FCSF_TARGET_ROOT=/mnt fcsf menu
 ```
 
-## Important implementation status
+FCSF uses the target system's XBPS repository configuration. Internet access is required for packages not already available locally.
 
-This is the initial selection/staging engine, not yet wired into a graphical installer. The current repository builds a Void-based Live ISO and does not yet contain an installer frontend. The installer must call FCSF after mounting the target system.
+## Flatpak and FPM
 
-The current vendor-to-directory map is intentionally conservative and must be expanded/validated against the exact Void `linux-firmware` package contents. CPU microcode must be installed and activated using the appropriate Void package/initramfs mechanism; copying a directory alone is not sufficient. FCSF therefore reports/stages detected CPU payloads but does not claim to configure early microcode loading.
+The Live ISO bundles Flatpak and the FPM command-line frontend. Flathub is configured system-wide during image setup. FPM manages Flatpak applications only; XBPS remains responsible for system packages.
 
-The Live ISO must retain the full offline firmware candidate set so that hardware needed during the live session (especially Wi-Fi) works before the user makes a selection. Smart selection affects the target installation, not the already-booted Live environment.
+## Implementation status and limitations
+
+FCSF is a firmware-selection/staging engine and is not yet wired into a graphical installer. The current repository builds a Void-based Live ISO and does not yet contain a complete installer frontend.
+
+Hardware detection currently distinguishes PCI graphics-class devices and CPU vendors. It does not yet map every PCI/USB device ID to an exact driver/firmware requirement. Intel CPU microcode activation is not implemented here. Validate package availability and target XBPS configuration on each supported release.
+
+The Live ISO retains network firmware so supported Wi-Fi/Ethernet devices can connect before optional firmware is downloaded. Additional firmware is installed only into the target system.
