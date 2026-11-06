@@ -54,6 +54,19 @@ jobs:
           sudo apt-get install -y xorriso
           iso="${images[0]}"
 
+          # Verify removable-media UEFI fallback loaders are present in the
+          # ISO filesystem and have the correct PE/COFF machine formats.
+          mkdir -p out/efi-check/EFI/BOOT
+          xorriso -indev "$iso" -osirrox on \
+            -extract /EFI/BOOT/BOOTIA32.EFI out/efi-check/EFI/BOOT/BOOTIA32.EFI
+          xorriso -indev "$iso" -osirrox on \
+            -extract /EFI/BOOT/BOOTX64.EFI out/efi-check/EFI/BOOT/BOOTX64.EFI
+          ia32_info="$(file out/efi-check/EFI/BOOT/BOOTIA32.EFI)"
+          x64_info="$(file out/efi-check/EFI/BOOT/BOOTX64.EFI)"
+          printf '%s\\n%s\\n' "$ia32_info" "$x64_info" | tee out/EFI-BOOT-REPORT.txt
+          grep -Eqi 'PE32 executable.*(Intel 80386|80386)' <<<"$ia32_info"
+          grep -Eqi 'PE32\\+ executable.*x86-64' <<<"$x64_info"
+
           # Confirm that both BIOS and UEFI El Torito boot entries exist.
           xorriso -indev "$iso" -report_el_torito plain | tee out/ELTORITO-REPORT.txt
           grep -Eqi 'BIOS|0x00' out/ELTORITO-REPORT.txt
@@ -82,6 +95,7 @@ jobs:
             out/SHA256SUMS
             out/ELTORITO-REPORT.txt
             out/SYSTEM-AREA-REPORT.txt
+            out/EFI-BOOT-REPORT.txt
           generate_release_notes: true
           fail_on_unmatched_files: true
 
@@ -103,5 +117,6 @@ jobs:
             out/SHA256SUMS
             out/ELTORITO-REPORT.txt
             out/SYSTEM-AREA-REPORT.txt
+            out/EFI-BOOT-REPORT.txt
           if-no-files-found: error
           retention-days: 14
