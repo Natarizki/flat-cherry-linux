@@ -25,6 +25,9 @@ The build workflow records:
 - El Torito boot entries for BIOS and UEFI.
 - The ISO system-area report.
 - SHA-256 checksum.
+- The removable-media UEFI fallback loaders at `/EFI/BOOT/BOOTIA32.EFI` and `/EFI/BOOT/BOOTX64.EFI`, with PE/COFF architecture checks.
+
+The IA32 loader is GRUB for 32-bit UEFI; the x64 loader is GRUB for 64-bit UEFI. Both are exported from the upstream `void-mklive` EFI boot image into the ISO filesystem so an ISO-to-ESP writer can copy them onto a FAT32 ESP. This does not by itself prove that the x86_64 kernel can boot through every 32-bit UEFI implementation: kernel EFI mixed-mode support and real Bay Trail/Cherry Trail device testing remain separate validation items.
 
 A generated image is still a build candidate until the reports and actual boot tests have been reviewed. Do not describe an image as fully validated merely because the build succeeded.
 
