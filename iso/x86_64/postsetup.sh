@@ -2,6 +2,7 @@
 set -euo pipefail
 
 ROOTFS="${1:?postsetup.sh requires the target root filesystem}"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 AUDIT_DIR="${FLAT_CHERRY_AUDIT_DIR:-/tmp/flat-cherry-audit}"
 mkdir -p "$AUDIT_DIR"
 AUDIT_LOG="$AUDIT_DIR/rootfs-audit.txt"
@@ -100,6 +101,10 @@ for path in "$ROOTFS/usr/share/fonts" "$ROOTFS/usr/share/doc" "$ROOTFS/usr/share
     echo "Removed: ${path#"$ROOTFS"}"
   fi
 done
+
+# Install the FCSF selector in the Live ISO; the installer invokes it after mounting the target.
+install -D -m 0755 "$SCRIPT_DIR/fcsf/fcsf" "$ROOTFS/usr/bin/fcsf"
+install -D -m 0644 "$SCRIPT_DIR/fcsf/README.md" "$ROOTFS/usr/share/doc/flatcherry/fcsf/README.md"
 
 # Set a recognizable live-system message without changing Void's runit setup.
 cat > "$ROOTFS/etc/motd" <<'EOF'
